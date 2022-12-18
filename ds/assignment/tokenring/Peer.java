@@ -83,7 +83,6 @@ class Connection implements Runnable {
             Scanner parser = new Scanner(in.readLine());
             Server.token = Integer.parseInt(parser.next());
             parser.close();
-
             socket.close();
 
             if (!Server.lock) {
