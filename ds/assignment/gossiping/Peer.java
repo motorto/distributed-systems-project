@@ -61,7 +61,6 @@ class Server implements Runnable {
     public static void register(String neigh_ip_addr, String neigh_ip_port, boolean is_acknowledgement)
             throws NumberFormatException, UnknownHostException, IOException {
         String new_node = neigh_ip_addr + ":" + neigh_ip_port;
-        System.out.println("Trying to Register: " + new_node);
 
         if (!neighbours.containsKey(new_node)) {
             System.out.println("Added: " + new_node);
@@ -72,7 +71,21 @@ class Server implements Runnable {
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                 out.println("register " + "acknowledgement " + ip_addr + " " + ip_port);
                 out.flush();
+                out.close();
             }
+        }
+    }
+
+    public static void gossip(String word_to_send) throws IOException {
+        for (String string : neighbours.keySet()) { // TODO: shouldn't I be able to use the already stored socket ??? It
+                                                    // seems that out.close on L74 closes the socket as well.
+            String ip_gossip[] = string.split(":");
+
+            Socket socket = new Socket(InetAddress.getByName(ip_gossip[0]), Integer.parseInt(ip_gossip[1]));
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println("word " + word_to_send);
+            out.flush();
+            out.close();
         }
     }
 }
@@ -96,6 +109,14 @@ class Connection implements Runnable {
                         Server.register(parser.next(), parser.next(), true);
                     } else {
                         Server.register(is_acknowledgement, parser.next(), false);
+                    }
+                    break;
+                case "word":
+                    String word_received = parser.next();
+                    if (!Server.dictionary.contains(word_received)) {
+                        Server.dictionary.add(word_received);
+                        System.out.println("Word Received: " + word_received);
+                        Server.gossip(word_received);
                     }
                     break;
                 default:
@@ -132,7 +153,7 @@ class Client implements Runnable {
                     }
                     break;
                 default:
-                    System.err.println("Invalidi Call");
+                    System.err.println("Invalid Call");
                     break;
             }
         }
@@ -157,9 +178,10 @@ class Word_generator implements Runnable {
             try {
                 int mean_poisson = get_poisson_random(file_number_lines); // TODO: WHO TO CALCULATE MEAN
                 String word_generated = Files.readAllLines(Paths.get(file_path)).get(mean_poisson);
-                System.out.println("WORD GENERATED: " + word_generated);
                 if (!Server.dictionary.contains(word_generated)) {
                     Server.dictionary.add(word_generated);
+                    System.out.println("Word Generated: " + word_generated);
+                    Server.gossip(word_generated);
                 }
 
                 Thread.sleep(30 * 1000);
@@ -171,7 +193,6 @@ class Word_generator implements Runnable {
 
     // From:
     // https://stackoverflow.com/questions/1277880/how-can-i-get-the-count-of-line-in-a-file-in-an-efficient-way
-
     private int count_lines_of_file(String file_path) throws IOException {
         BufferedReader reader = new BufferedReader(new FileReader(file_path));
         int lines = 0;
