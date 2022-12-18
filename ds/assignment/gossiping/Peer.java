@@ -1,6 +1,7 @@
 package ds.assignment.gossiping;
 
 import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -8,7 +9,11 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Random;
 import java.util.Scanner;
 
 /**
@@ -29,6 +34,7 @@ public class Peer {
 class Server implements Runnable {
     ServerSocket server;
     static HashMap<String, Socket> neighbours;
+    static HashSet<String> dictionary;
     static String ip_addr;
     static String ip_port;
 
@@ -37,6 +43,7 @@ class Server implements Runnable {
         Server.ip_port = ip_port;
         this.server = new ServerSocket(Integer.parseInt(ip_port), 1, InetAddress.getByName(ip_addr));
         Server.neighbours = new HashMap<>();
+        Server.dictionary = new HashSet<>();
     }
 
     @Override
@@ -105,10 +112,12 @@ class Connection implements Runnable {
  * Command Line
  */
 class Client implements Runnable {
+    final String file_path = "words.txt";
     Scanner scanner;
 
     public Client() throws Exception {
         this.scanner = new Scanner(System.in);
+        new Thread(new Word_generator(this.file_path)).start();
     }
 
     @Override
@@ -128,4 +137,61 @@ class Client implements Runnable {
             }
         }
     }
+}
+
+class Word_generator implements Runnable {
+
+    int file_number_lines;
+    String file_path;
+
+
+    public Word_generator(String file_path) throws IOException {
+        this.file_path = file_path;
+        this.file_number_lines = count_lines_of_file(this.file_path);
+    }
+
+    @Override
+    public void run() {
+
+        while (true) {
+            try {
+                int mean_poisson = get_poisson_random(file_number_lines); // TODO: WHO TO CALCULATE MEAN
+                String word_generated = Files.readAllLines(Paths.get(file_path)).get(mean_poisson);
+                System.out.println("WORD GENERATED: " + word_generated);
+                if (!Server.dictionary.contains(word_generated)) {
+                    Server.dictionary.add(word_generated);
+                }
+
+                Thread.sleep(30 * 1000);
+            } catch (InterruptedException | IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // From:
+    // https://stackoverflow.com/questions/1277880/how-can-i-get-the-count-of-line-in-a-file-in-an-efficient-way
+
+    private int count_lines_of_file(String file_path) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(file_path));
+        int lines = 0;
+        while (reader.readLine() != null)
+            lines++;
+        reader.close();
+        return lines;
+    }
+
+
+    private static int get_poisson_random(double mean) {
+        Random r = new Random();
+        double L = Math.exp(-mean);
+        int k = 0;
+        double p = 1.0;
+        do {
+            p = p * r.nextDouble();
+            k++;
+        } while (p > L);
+        return k - 1;
+    }
+
 }
