@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Peer
@@ -117,6 +118,11 @@ class Connection implements Runnable {
                         Server.dictionary.add(word_received);
                         System.out.println("Word Received: " + word_received);
                         Server.gossip(word_received);
+                    } else {
+                        int keep_gossiping = rand_int_generator(1, 5);
+                        if (keep_gossiping == 5) {
+                            Server.gossip(word_received);
+                        }
                     }
                     break;
                 default:
@@ -126,6 +132,10 @@ class Connection implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static int rand_int_generator(int min, int max) {
+        return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
 }
 
@@ -173,17 +183,21 @@ class Word_generator implements Runnable {
 
     @Override
     public void run() {
-
         while (true) {
             try {
-                int mean_poisson = get_poisson_random(file_number_lines); // TODO: WHO TO CALCULATE MEAN
-                String word_generated = Files.readAllLines(Paths.get(file_path)).get(mean_poisson);
+                int random_poisson_number = get_poisson_random();
+                String word_generated = Files.readAllLines(Paths.get(file_path)).get(random_poisson_number);
+
                 if (!Server.dictionary.contains(word_generated)) {
                     Server.dictionary.add(word_generated);
                     System.out.println("Word Generated: " + word_generated);
                     Server.gossip(word_generated);
+                } else {
+                    int keep_gossiping = rand_int_generator(1, 5);
+                    if (keep_gossiping == 5) {
+                        Server.gossip(word_generated);
+                    }
                 }
-
                 Thread.sleep(30 * 1000);
             } catch (InterruptedException | IOException e) {
                 e.printStackTrace();
@@ -203,9 +217,12 @@ class Word_generator implements Runnable {
     }
 
 
-    private static int get_poisson_random(double mean) {
+    // From:
+    // https://en.wikipedia.org/wiki/Poisson_distribution#Random_variate_generation
+    private static int get_poisson_random() {
+        double lambda = 2;
         Random r = new Random();
-        double L = Math.exp(-mean);
+        double L = Math.exp(-lambda);
         int k = 0;
         double p = 1.0;
         do {
@@ -213,6 +230,10 @@ class Word_generator implements Runnable {
             k++;
         } while (p > L);
         return k - 1;
+    }
+
+    public static int rand_int_generator(int min, int max) {
+        return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
 
 }
