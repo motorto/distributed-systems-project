@@ -19,8 +19,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class Peer {
 
-    static final AtomicLong myTimestamp = new AtomicLong();
-    static final ArrayList<String> neighbors = new ArrayList<>();
+    static final AtomicLong timestamp = new AtomicLong();
+    static final ArrayList<String> neighbours = new ArrayList<>();
 
     public static void main(String[] args) throws NumberFormatException, UnknownHostException, IOException {
 
@@ -30,7 +30,7 @@ public class Peer {
         }
 
         for (int i = 2; i < args.length; i++) {
-            Peer.neighbors.add(args[i]);
+            Peer.neighbours.add(args[i]);
         }
 
         new Thread(new Server(args[0], args[1])).start();
@@ -69,9 +69,9 @@ class Server implements Runnable {
 
                 long tc;
                 for (;;) {
-                    long oldValue = Peer.myTimestamp.get();
-                    tc = Math.max(oldValue, message_received.getTimestamp()) + 1;
-                    if (Peer.myTimestamp.compareAndSet(oldValue, tc))
+                    long old_value = Peer.timestamp.get();
+                    tc = Math.max(old_value, message_received.getTimestamp()) + 1;
+                    if (Peer.timestamp.compareAndSet(old_value, tc))
                         break;
                 }
 
@@ -98,7 +98,7 @@ class Server implements Runnable {
     }
 
     static void send_message(Message message_to_send) {
-        for (String client : Peer.neighbors) {
+        for (String client : Peer.neighbours) {
             try {
                 String client_data[] = client.split(":");
 
@@ -127,7 +127,7 @@ class Client implements Runnable {
     public void run() {
         while (true) {
             String input = scanner.nextLine();
-            Message to_send = new Message(Peer.myTimestamp.incrementAndGet(), input);
+            Message to_send = new Message(Peer.timestamp.incrementAndGet(), input);
 
             Server.send_message(to_send);
 
