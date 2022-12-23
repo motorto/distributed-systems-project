@@ -23,6 +23,12 @@ public class Peer {
     static final ArrayList<String> neighbors = new ArrayList<>();
 
     public static void main(String[] args) throws NumberFormatException, UnknownHostException, IOException {
+
+        if (args.length < 3) {
+            System.err.println("Missing Arguments: Peer my_ip my_port others_ip(ip:port)");
+            System.exit(1);
+        }
+
         for (int i = 2; i < args.length; i++) {
             Peer.neighbors.add(args[i]);
         }
@@ -162,7 +168,7 @@ class Message implements Comparable<Message> {
 
     @Override
     public String toString() {
-        return timestamp + ": " + message;
+        return timestamp + " " + message;
     }
 
     public Long getTimestamp() {
