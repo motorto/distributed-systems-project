@@ -22,13 +22,13 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class Peer {
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.err.println("Missing Arguments: Peer my_ip my_port");
+        if (args.length != 3) {
+            System.err.println("Missing Arguments: Peer my_ip my_port data_to_disseminate");
             System.exit(1);
         }
 
         new Thread(new Server(args[0], args[1])).start();
-        new Thread(new Client()).start();
+        new Thread(new Client(args[2])).start();
     }
 }
 
@@ -143,11 +143,12 @@ class Connection implements Runnable {
  * Command Line
  */
 class Client implements Runnable {
-    final String file_path = "words.txt";
+    String file_path;
     Scanner scanner;
 
-    public Client() throws Exception {
+    public Client(String file) throws Exception {
         this.scanner = new Scanner(System.in);
+        this.file_path = file;
         new Thread(new Word_generator(this.file_path)).start();
     }
 
