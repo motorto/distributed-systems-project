@@ -101,11 +101,11 @@ class Connection implements Runnable {
             Scanner parser = new Scanner(in.readLine());
             Message message_received = new Message().parse(parser.nextLine());
             switch (message_received.getType_of_message()) {
-                case "message:":
+                case "message":
                     System.out.println(message_received.toString()); // TODO: what does the prof means by replica do I
                                                                      // need to send
                     // the message to p6 aswell (assuming I am p5)
-                case "time_update:":
+                case "time_update":
                     long old_value = Peer.timestamp.get();
                     Peer.timestamp.compareAndSet(old_value, message_received.getTimestamp() + 1);
                     break;
@@ -153,7 +153,8 @@ class Message implements Comparable<Message> {
 
     public Message parse(String readLine) {
         Scanner sc = new Scanner(readLine);
-        this.type_of_message = sc.next();
+        String tmp = sc.next();
+        this.type_of_message = tmp.replace(":","");
         this.timestamp = Long.parseLong(sc.next());
         this.message = sc.nextLine();
         sc.close();
