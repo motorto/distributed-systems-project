@@ -186,6 +186,9 @@ class Word_generator implements Runnable {
         while (true) {
             try {
                 int random_poisson_number = get_poisson_random();
+                while (random_poisson_number > this.file_number_lines) {
+                    random_poisson_number = get_poisson_random();
+                }
                 String word_generated = Files.readAllLines(Paths.get(file_path)).get(random_poisson_number);
 
                 if (!Server.dictionary.contains(word_generated)) {
