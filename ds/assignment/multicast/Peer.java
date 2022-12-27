@@ -1,6 +1,7 @@
 package ds.assignment.multicast;
 
 import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -21,22 +22,35 @@ public class Peer {
     public static void main(String[] args) throws NumberFormatException, UnknownHostException, IOException {
 
         if (args.length < 3) {
-            System.err.println("Missing Arguments: Peer my_ip my_port others_ip(ip:port)");
+            System.err.println("Missing Arguments: Peer my_ip my_port file_with_ip_of_all_networks");
             System.exit(1);
         }
 
-        // TODO: Dont like this way of doing input at all ...
-        int i = 0;
-        for (i = 2; i < args.length - 2; i++) {
-            Peer.neighbours.add(args[i]);
-        }
-
-        for (; i < args.length; i++) {
-            Peer.servers_that_offer_service.add(args[i]);
+        boolean i_am_a_server = false;
+        try (BufferedReader br = new BufferedReader(new FileReader(args[2]))) {
+            String line;
+            String my_ip = args[0] + ":" + args[1];
+            while ((line = br.readLine()) != null) {
+                if (line.substring(0, 2).equals("s:")) {
+                    String line_tmp = line.replace("s:", "");
+                    if (line_tmp.equals(my_ip)) {
+                        i_am_a_server = true;
+                        continue;
+                    }
+                    Peer.servers_that_offer_service.add(line.replace("s:", ""));
+                } else {
+                    if (line.equals(my_ip)) {
+                        continue;
+                    }
+                    Peer.neighbours.add(line);
+                }
+            }
         }
 
         new Thread(new Server(args[0], args[1])).start();
-        new Thread(new Client()).start();
+
+        if (!i_am_a_server)
+            new Thread(new Client()).start();
 
     }
 }
@@ -154,7 +168,7 @@ class Message implements Comparable<Message> {
     public Message parse(String readLine) {
         Scanner sc = new Scanner(readLine);
         String tmp = sc.next();
-        this.type_of_message = tmp.replace(":","");
+        this.type_of_message = tmp.replace(":", "");
         this.timestamp = Long.parseLong(sc.next());
         this.message = sc.nextLine();
         sc.close();
@@ -177,8 +191,7 @@ class Message implements Comparable<Message> {
 
     @Override
     public String toString() {
-        return type_of_message + ": " + timestamp + " " + message; // TODO: probably remove the type_of_message from
-                                                                   // toString()
+        return type_of_message + ": " + timestamp + " " + message;
     }
 
     public Long getTimestamp() {
