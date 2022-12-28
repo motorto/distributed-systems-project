@@ -18,6 +18,7 @@ public class Peer {
     static final AtomicLong timestamp = new AtomicLong();
     static final ArrayList<String> neighbours = new ArrayList<>();
     static final ArrayList<String> servers_that_offer_service = new ArrayList<>();
+    static boolean i_am_a_server = false;
 
     public static void main(String[] args) throws NumberFormatException, UnknownHostException, IOException {
 
@@ -34,7 +35,7 @@ public class Peer {
                 if (line.substring(0, 2).equals("s:")) {
                     String line_tmp = line.replace("s:", "");
                     if (line_tmp.equals(my_ip)) {
-                        i_am_a_server = true;
+                        Peer.i_am_a_server = true;
                         continue;
                     }
                     Peer.servers_that_offer_service.add(line.replace("s:", ""));
@@ -49,7 +50,7 @@ public class Peer {
 
         new Thread(new Server(args[0], args[1])).start();
 
-        if (!i_am_a_server)
+        if (!Peer.i_am_a_server)
             new Thread(new Client()).start();
 
     }
@@ -122,6 +123,10 @@ class Connection implements Runnable {
                 case "time_update":
                     long old_value = Peer.timestamp.get();
                     Peer.timestamp.compareAndSet(old_value, Math.max(old_value, message_received.getTimestamp() + 1));
+
+                    if (!Peer.i_am_a_server) {
+                        System.out.println("Update Clock");
+                    }
                     break;
                 default:
                     System.err.println("Invalid Call");
