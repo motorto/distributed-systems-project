@@ -121,7 +121,7 @@ class Connection implements Runnable {
                     // the message to p6 aswell (assuming I am p5)
                 case "time_update":
                     long old_value = Peer.timestamp.get();
-                    Peer.timestamp.compareAndSet(old_value, message_received.getTimestamp() + 1);
+                    Peer.timestamp.compareAndSet(old_value, Math.max(old_value, message_received.getTimestamp() + 1));
                     break;
                 default:
                     System.err.println("Invalid Call");
