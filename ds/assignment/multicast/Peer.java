@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class Peer {
 
     static final AtomicLong timestamp = new AtomicLong();
-    static boolean i_offer_services = false;
+    static boolean i_offer_service = false;
     static HashMap<String, Socket> network = new HashMap<>();
     static PriorityQueue<Message> queue = new PriorityQueue<>();
 
@@ -34,7 +34,7 @@ public class Peer {
                 if (line.substring(0, 2).equals("s:")) {
                     String line_tmp = line.replace("s:", "");
                     if (line_tmp.equals(my_ip)) {
-                        Peer.i_offer_services = true;
+                        Peer.i_offer_service = true;
                         continue;
                     }
                     Peer.network.put(line_tmp, null);
@@ -48,8 +48,33 @@ public class Peer {
         }
 
         new Thread(new Server(args[0], args[1])).start();
-        if (!i_offer_services) {
+        if (!i_offer_service) {
             new Thread(new Client()).start();
+        } else if (i_offer_service) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    System.out.println("AAAAA");
+                    System.out.println(Peer.network.size());
+                    while (true) {
+                        if (!Peer.queue.isEmpty()) {
+                            if (Peer.queue.peek().getType_of_message().equals("ack")) {
+                                Peer.queue.poll();
+                            } else if (Peer.queue.peek().getType_of_message().equals("message")) {
+                                int counter = Peer.network.size();
+                                for (Message message : Peer.queue) {
+                                    if (message.getMessage().equals(Peer.queue.peek().getMessage())) {
+                                        counter--;
+                                    }
+                                    if (counter == 0) {
+                                        System.out.println(Peer.queue.peek());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }).start();
         }
     }
 }
@@ -85,40 +110,28 @@ class Server implements Runnable {
         }
     }
 
-    public static void send_message(boolean is_acknowledgement, Message to_send)
+    public static void send_message(int flag, Message to_send)
             throws NumberFormatException, UnknownHostException, IOException {
 
-        if (!is_acknowledgement) {
+        if (flag == 0) {
             to_send.setType_of_message("message");
-            to_send.setIp_addr_origin(Server.ip_addr);
-            to_send.setIp_port_origin(Server.ip_port);
-
-            for (String ip_tmp : Peer.network.keySet()) { // TODO: Why don't can we use the socket
-                String ip_to_create_connection[] = ip_tmp.split(":");
-
-                Socket socket = new Socket(InetAddress.getByName(ip_to_create_connection[0]),
-                        Integer.parseInt(ip_to_create_connection[1]));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-
-                out.println(to_send);
-                out.flush();
-                out.close();
-                socket.close();
-
-            }
-        } else {
+        } else if (flag == 1) {
             to_send.setType_of_message("ack");
+        } else {
+            System.err.println("You found a bug at line100");
+            System.exit(-1);
+        }
 
-            String ip_to_send = to_send.getIp_addr_origin();
-            String port_to_send = to_send.getIp_port_origin();
+        to_send.setIp_addr_origin(Server.ip_addr);
+        to_send.setIp_port_origin(Server.ip_port);
 
-            to_send.setIp_addr_origin(Server.ip_addr);
-            to_send.setIp_port_origin(Server.ip_port);
+        for (String ip_tmp : Peer.network.keySet()) { // TODO: Why can't we use the sockets
+            String ip_to_create_connection[] = ip_tmp.split(":");
 
-            Socket socket = new Socket(InetAddress.getByName(ip_to_send),
-                    Integer.parseInt(port_to_send));
-
+            Socket socket = new Socket(InetAddress.getByName(ip_to_create_connection[0]),
+                    Integer.parseInt(ip_to_create_connection[1]));
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+
             out.println(to_send);
             out.flush();
             out.close();
@@ -149,7 +162,7 @@ class Connection implements Runnable {
                 case "message":
                     Server.update_clocks(message_received);
                     Peer.queue.add(message_received);
-                    Server.send_message(true, message_received);
+                    Server.send_message(1, message_received);
                     break;
                 case "ack":
                     Server.update_clocks(message_received);
@@ -178,8 +191,18 @@ class Client implements Runnable {
         while (true) {
             try {
                 String input = scanner.nextLine();
+                if (input.equalsIgnoreCase("queue")) {
+                    System.out.println("DEBUG");
+                    System.out.println("---QUEUE---");
+                    for (Message m : Peer.queue) {
+                        System.out.println(m);
+                    }
+                    System.out.println("-----");
+                    continue;
+                }
                 Message to_send = new Message(Peer.timestamp.getAndIncrement(), input);
-                Server.send_message(false, to_send);
+                Peer.queue.add(to_send);
+                Server.send_message(0, to_send);
             } catch (NumberFormatException | IOException e) {
                 e.printStackTrace();
             }
