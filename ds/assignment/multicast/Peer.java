@@ -1,7 +1,6 @@
 package ds.assignment.multicast;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -16,12 +15,13 @@ import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Peer {
-    static final AtomicLong timestamp = new AtomicLong();
-    static HashMap<String, Socket> neighbours = new HashMap<>();
-    // static HashMap<String, Socket> servers_that_offer_service = new HashMap<>();
-    static boolean i_am_a_server = false;
 
-    public static void main(String[] args) throws FileNotFoundException, IOException {
+    static final AtomicLong timestamp = new AtomicLong();
+    static boolean i_offer_services = false;
+    static HashMap<String, Socket> network = new HashMap<>();
+    static PriorityQueue<Message> queue = new PriorityQueue<>();
+
+    public static void main(String[] args) throws IOException {
         if (args.length < 3) {
             System.err.println("Missing Arguments: Peer my_ip my_port file_with_ip_of_all_networks");
             System.exit(1);
@@ -34,37 +34,34 @@ public class Peer {
                 if (line.substring(0, 2).equals("s:")) {
                     String line_tmp = line.replace("s:", "");
                     if (line_tmp.equals(my_ip)) {
-                        Peer.i_am_a_server = true;
+                        Peer.i_offer_services = true;
                         continue;
                     }
-                    Peer.neighbours.put(line_tmp, null);
+                    Peer.network.put(line_tmp, null);
                 } else {
                     if (line.equals(my_ip)) {
                         continue;
                     }
-                    Peer.neighbours.put(line, null);
+                    Peer.network.put(line, null);
                 }
             }
         }
 
         new Thread(new Server(args[0], args[1])).start();
-
-        if (!Peer.i_am_a_server)
+        if (!i_offer_services) {
             new Thread(new Client()).start();
-
+        }
     }
 }
 
 class Server implements Runnable {
     ServerSocket server;
-    String ip_port, ip_addr;
-    static PriorityQueue<Message> queue;
+    static String ip_port, ip_addr;
 
-    public Server(String ip_addr, String ip_port) throws NumberFormatException, UnknownHostException, IOException {
-        this.ip_port = ip_port;
-        this.ip_addr = ip_addr;
+    public Server(String ip_addr, String ip_port) throws NumberFormatException, IOException {
+        Server.ip_port = ip_port;
+        Server.ip_addr = ip_addr;
         this.server = new ServerSocket(Integer.parseInt(ip_port), 1, InetAddress.getByName(ip_addr));
-        Server.queue = new PriorityQueue<>();
     }
 
     @Override
@@ -88,34 +85,50 @@ class Server implements Runnable {
         }
     }
 
-    private static void build_network() throws NumberFormatException, UnknownHostException, IOException {
-        for (String ip_tmp : Peer.neighbours.keySet()) {
-            if (Peer.neighbours.get(ip_tmp) == null) {
-                String ip_to_create_connection[] = ip_tmp.split(":");
-                Socket socket = new Socket(InetAddress.getByName(ip_to_create_connection[0]),
-                        Integer.parseInt(ip_to_create_connection[1]));
-                Peer.neighbours.replace(ip_tmp, null, socket);
-            }
-        }
-    }
-
-    public static void send_message(Message message_to_send)
+    public static void send_message(boolean is_acknowledgement, Message to_send)
             throws NumberFormatException, UnknownHostException, IOException {
 
-        if (Peer.neighbours.containsValue(null)) {
-            Server.build_network();
-        }
+        if (!is_acknowledgement) {
+            to_send.setType_of_message("message");
+            to_send.setIp_addr_origin(Server.ip_addr);
+            to_send.setIp_port_origin(Server.ip_port);
 
-        for (Socket socket : Peer.neighbours.values()) {
+            for (String ip_tmp : Peer.network.keySet()) { // TODO: Why don't can we use the socket
+                String ip_to_create_connection[] = ip_tmp.split(":");
+
+                Socket socket = new Socket(InetAddress.getByName(ip_to_create_connection[0]),
+                        Integer.parseInt(ip_to_create_connection[1]));
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+
+                out.println(to_send);
+                out.flush();
+                out.close();
+                socket.close();
+
+            }
+        } else {
+            to_send.setType_of_message("ack");
+
+            String ip_to_send = to_send.getIp_addr_origin();
+            String port_to_send = to_send.getIp_port_origin();
+
+            to_send.setIp_addr_origin(Server.ip_addr);
+            to_send.setIp_port_origin(Server.ip_port);
+
+            Socket socket = new Socket(InetAddress.getByName(ip_to_send),
+                    Integer.parseInt(port_to_send));
+
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println(message_to_send);
+            out.println(to_send);
             out.flush();
             out.close();
+            socket.close();
         }
     }
 }
 
 class Connection implements Runnable {
+
     Socket socket;
 
     public Connection(Socket client) {
@@ -131,42 +144,28 @@ class Connection implements Runnable {
 
             System.out.println("DEBUG");
             System.out.println(message_received);
-            System.out.println("----");
 
             switch (message_received.getType_of_message()) {
                 case "message":
                     Server.update_clocks(message_received);
-                    Server.queue.add(message_received);
-                    // Server.send_ack(message_received);
+                    Peer.queue.add(message_received);
+                    Server.send_message(true, message_received);
                     break;
-                case "acknowledge":
+                case "ack":
                     Server.update_clocks(message_received);
-                    if (!Server.queue.isEmpty()) {
-                        Server.queue.add(message_received);
-                    }
+                    Peer.queue.add(message_received);
                     break;
                 default:
                     System.err.println("Invalid Call");
                     break;
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
 }
 
-// TODO: Change this to use poisson;
-
-// start_poisson_generator()
-// lamport_clock = 0
-// while(true) {
-//       dt = next_poisson_interval()
-//       sleep(dt)
-//       send_message(lamport_clock++)
-// }
 class Client implements Runnable {
     private Scanner scanner;
 
@@ -180,8 +179,7 @@ class Client implements Runnable {
             try {
                 String input = scanner.nextLine();
                 Message to_send = new Message(Peer.timestamp.getAndIncrement(), input);
-                to_send.setType_of_message("message");
-                Server.send_message(to_send);
+                Server.send_message(false, to_send);
             } catch (NumberFormatException | IOException e) {
                 e.printStackTrace();
             }
@@ -193,6 +191,23 @@ class Message implements Comparable<Message> {
     private Long timestamp;
     private String message;
     private String type_of_message;
+    private String ip_addr_origin, ip_port_origin;
+
+    public String getIp_port_origin() {
+        return ip_port_origin;
+    }
+
+    public void setIp_port_origin(String ip_port_origin) {
+        this.ip_port_origin = ip_port_origin;
+    }
+
+    public String getIp_addr_origin() {
+        return ip_addr_origin;
+    }
+
+    public void setIp_addr_origin(String ip_addr_origin) {
+        this.ip_addr_origin = ip_addr_origin;
+    }
 
     public Message(Long timestamp, String message) {
         this.timestamp = timestamp;
@@ -201,8 +216,17 @@ class Message implements Comparable<Message> {
 
     public Message parse(String readLine) {
         Scanner sc = new Scanner(readLine);
-        String tmp = sc.next();
+
+        String tmp = sc.next(); // Reads the From:
+        tmp = sc.next();
+
+        String ip_origin[] = tmp.split(":");
+        this.ip_addr_origin = ip_origin[0];
+        this.ip_port_origin = ip_origin[1];
+
+        tmp = sc.next(); // type of message
         this.type_of_message = tmp.replace(":", "");
+
         this.timestamp = Long.parseLong(sc.next());
         this.message = sc.nextLine();
         sc.close();
@@ -225,7 +249,8 @@ class Message implements Comparable<Message> {
 
     @Override
     public String toString() {
-        return type_of_message + ": " + timestamp + " " + message;
+        return "From: " + ip_addr_origin + ":" + ip_port_origin + " " + type_of_message + ": " + timestamp + " "
+                + message;
     }
 
     public Long getTimestamp() {
