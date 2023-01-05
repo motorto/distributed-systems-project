@@ -1,6 +1,7 @@
 package ds.assignment.multicast;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -15,13 +16,11 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Peer {
-
     static final AtomicLong timestamp = new AtomicLong();
-    static boolean i_offer_service = false;
     static HashSet<String> network = new HashSet<>();
     static PriorityBlockingQueue<Message> queue = new PriorityBlockingQueue<>();
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws FileNotFoundException, IOException {
         if (args.length < 3) {
             System.err.println("Missing Arguments: Peer my_ip my_port file_with_ip_of_all_networks");
             System.exit(1);
@@ -48,20 +47,18 @@ public class Peer {
         }
 
         new Thread(new Server(args[0], args[1])).start();
-        if (!i_offer_service) {
-            new Thread(new Client()).start();
-        }
+        new Thread(new Shell()).start();
     }
 }
 
 class Server implements Runnable {
     ServerSocket server;
-    static String ip_port, ip_addr;
+    static String ip, port;
 
-    public Server(String ip_addr, String ip_port) throws NumberFormatException, UnknownHostException, IOException {
-        Server.ip_port = ip_port;
-        Server.ip_addr = ip_addr;
-        this.server = new ServerSocket(Integer.parseInt(ip_port), 1, InetAddress.getByName(ip_addr));
+    public Server(String ip, String port) throws NumberFormatException, UnknownHostException, IOException {
+        Server.ip = ip;
+        Server.port = port;
+        this.server = new ServerSocket(Integer.parseInt(port), 1, InetAddress.getByName(ip));
     }
 
     @Override
@@ -76,20 +73,19 @@ class Server implements Runnable {
         }
     }
 
-    public static void send_message(int flag, Message to_send)
+    public static void update_clocks(Message message_received) {
+        long old_value = Peer.timestamp.get();
+        while (true) {
+            if (Peer.timestamp.compareAndSet(old_value, Math.max(old_value, message_received.getTimestamp() + 1))) {
+                break;
+            }
+        }
+    }
+
+    public static void send_message(Message to_send)
             throws NumberFormatException, UnknownHostException, IOException {
 
-        if (flag == 0) {
-            to_send.setType_of_message("message");
-        } else if (flag == 1) {
-            to_send.setType_of_message("ack");
-        } else {
-            System.err.println("You found a bug at send_message");
-            System.exit(-1);
-        }
-
-        to_send.setIp_addr_origin(Server.ip_addr);
-        to_send.setIp_port_origin(Server.ip_port);
+        Peer.queue.add(to_send);
 
         for (String ip_tmp : Peer.network) {
             String ip_to_create_connection[] = ip_tmp.split(":");
@@ -105,19 +101,9 @@ class Server implements Runnable {
         }
     }
 
-    public static void update_clocks(Message message_received) {
-        long old_value = Peer.timestamp.get();
-        while (true) {
-            if (Peer.timestamp.compareAndSet(old_value, Math.max(old_value, message_received.getTimestamp() + 1))) {
-                break;
-            }
-        }
-    }
-
 }
 
 class Connection implements Runnable {
-
     Socket socket;
 
     public Connection(Socket client) {
@@ -131,27 +117,63 @@ class Connection implements Runnable {
             Scanner parser = new Scanner(in.readLine());
             Message message_received = new Message().parse(parser.nextLine());
 
+            Server.update_clocks(message_received);
+            Peer.queue.add(message_received);
+
             // DEBUG
             System.out.println(message_received);
             // End of DEBUG
 
-            Server.update_clocks(message_received);
-            System.out.println("ab");
-
-            Peer.queue.add(message_received); // TODO: The issue is here commenting line 147 it appears on all queues
-                                              // ...
-
             switch (message_received.getType_of_message()) {
                 case "message":
-                    Server.send_message(1, message_received);
+                    Message to_ack = new Message(Peer.timestamp.getAndIncrement(), message_received.getMessage(),"ack");
+                    Server.send_message(to_ack);
                     break;
                 case "ack":
                     break;
                 default:
                     break;
             }
+
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
+}
+
+class Shell implements Runnable {
+
+    private Scanner scanner;
+
+    public Shell() {
+        this.scanner = new Scanner(System.in);
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                String input = scanner.nextLine();
+
+                // DEBUG
+                if (input.equalsIgnoreCase("queue")) {
+                    System.out.println("DEBUG");
+                    System.out.println("---QUEUE---");
+                    for (Message m : Peer.queue) {
+                        System.out.println(m);
+                    }
+                    System.out.println("-----");
+                    continue;
+                }
+                // End DEBUG
+
+                Message to_send = new Message(Peer.timestamp.getAndIncrement(), input, "message");
+                Server.send_message(to_send);
+            } catch (NumberFormatException | IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 }
