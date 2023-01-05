@@ -28,6 +28,8 @@ public class Message implements Comparable<Message> {
         this.timestamp = timestamp;
         this.message = message;
         this.type_of_message = "message";
+        this.ip_addr_origin = Server.ip;
+        this.ip_port_origin = Server.port;
     }
 
     public Message parse(String readLine) {
