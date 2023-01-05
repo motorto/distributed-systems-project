@@ -10,6 +10,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Scanner;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -50,6 +51,9 @@ public class Peer {
         new Thread(new Server(args[0], args[1])).start();
         if (!Peer.i_offer_service)
             new Thread(new Shell()).start();
+        else {
+            new Thread(new Mock_Server(Peer.network.size() + 1)).start();
+        }
     }
 }
 
@@ -122,10 +126,6 @@ class Connection implements Runnable {
             Server.update_clocks(message_received);
             Peer.queue.add(message_received);
 
-            // DEBUG
-            System.out.println(message_received);
-            // End of DEBUG
-
             switch (message_received.getType_of_message()) {
                 case "message":
                     Message to_ack = new Message(Peer.timestamp.getAndIncrement(), message_received.getMessage(),
@@ -158,24 +158,51 @@ class Shell implements Runnable {
         while (true) {
             try {
                 String input = scanner.nextLine();
-
-                // DEBUG
-                if (input.equalsIgnoreCase("queue")) {
-                    System.out.println("DEBUG");
-                    System.out.println("---QUEUE---");
-                    for (Message m : Peer.queue) {
-                        System.out.println(m);
-                    }
-                    System.out.println("-----");
-                    continue;
-                }
-                // End DEBUG
-
                 Message to_send = new Message(Peer.timestamp.getAndIncrement(), input, "message");
                 Server.send_message(to_send);
             } catch (NumberFormatException | IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+}
+
+class Mock_Server implements Runnable {
+
+    int number_of_peers;
+
+    Mock_Server(int number_of_peers) {
+        this.number_of_peers = number_of_peers;
+    }
+
+    private void clean_queue(ArrayList<Message> positions_to_delete) {
+        for (Message message_to_remove : positions_to_delete) {
+            Peer.queue.remove(message_to_remove);
+        }
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            if (!Peer.queue.isEmpty()) {
+                ArrayList<Message> messages_to_delete = new ArrayList<>();
+                Message at_the_top = Peer.queue.peek();
+
+                for (Message tmp : Peer.queue) {
+                    if (at_the_top.getMessage().equals(tmp.getMessage())) {
+
+                        if (tmp.getType_of_message().equals("message"))
+                            at_the_top = tmp;
+                        messages_to_delete.add(tmp);
+                    }
+                    if (messages_to_delete.size() == this.number_of_peers) {
+                        clean_queue(messages_to_delete);
+                        System.out.println(at_the_top);
+                    }
+                }
+            }
+
         }
     }
 
