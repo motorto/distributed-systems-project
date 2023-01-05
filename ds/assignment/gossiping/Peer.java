@@ -16,19 +16,26 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.ThreadLocalRandom;
+import java.lang.Math;
+import ds.assignment.gossiping.poisson.PoissonProcess;
 
 /**
  * Peer
  */
 public class Peer {
+
     public static void main(String[] args) throws Exception {
-        if (args.length != 3) {
-            System.err.println("Missing Arguments: Peer my_ip my_port data_to_disseminate");
+        final String file_path = "ds/assignment/gossiping/dictionary.txt";
+
+
+        if (args.length != 2) {
+            System.err.println("Missing Arguments: Peer my_ip my_port");
             System.exit(1);
         }
 
         new Thread(new Server(args[0], args[1])).start();
-        new Thread(new Client(args[2])).start();
+        new Thread(new Client()).start();
+        new Thread(new Word_generator(file_path)).start();
     }
 }
 
@@ -93,6 +100,7 @@ class Server implements Runnable {
 
 class Connection implements Runnable {
     Socket socket;
+    Random random = new Random();
 
     public Connection(Socket client) {
         this.socket = client;
@@ -118,10 +126,13 @@ class Connection implements Runnable {
                         Server.dictionary.add(word_received);
                         System.out.println("Word Received: " + word_received);
                         Server.gossip(word_received);
-                    } else {
-                        int keep_gossiping = rand_int_generator(1, 5);
-                        if (keep_gossiping == 5) {
+                    }else {
+                        float keep_gossiping = random.nextFloat(); 
+                        if (keep_gossiping > 1/5) {
                             Server.gossip(word_received);
+                        }
+                        else{
+                            System.out.println("Stop propagating: " + word_received);
                         }
                     }
                     break;
@@ -143,13 +154,11 @@ class Connection implements Runnable {
  * Command Line
  */
 class Client implements Runnable {
-    String file_path;
     Scanner scanner;
+    static Thread th;
 
-    public Client(String file) throws Exception {
+    public Client() throws Exception {
         this.scanner = new Scanner(System.in);
-        this.file_path = file;
-        new Thread(new Word_generator(this.file_path)).start();
     }
 
     @Override
@@ -172,10 +181,9 @@ class Client implements Runnable {
 }
 
 class Word_generator implements Runnable {
-
     int file_number_lines;
     String file_path;
-
+    double t = 0d;
 
     public Word_generator(String file_path) throws IOException {
         this.file_path = file_path;
@@ -184,25 +192,43 @@ class Word_generator implements Runnable {
 
     @Override
     public void run() {
+        Random rng = new Random(0); // base RNG to use
+        double lambda = 2; // rate parameter
+        PoissonProcess pp = new PoissonProcess(lambda, rng);
+        Random random = new Random();
+
         while (true) {
             try {
-                int random_poisson_number = get_poisson_random();
-                while (random_poisson_number > this.file_number_lines) {
-                    random_poisson_number = get_poisson_random();
-                }
-                String word_generated = Files.readAllLines(Paths.get(file_path)).get(random_poisson_number);
+                double poisson = pp.timeForNextEvent() * 60;
+                t += poisson;
+                //System.out.println("time for threads: " + poisson);
+                System.out.println("time: " + t);
+                // int random_line = random.nextInt(count_lines_of_file(file_path));
+                //System.out.println("number of lines: " + count_lines_of_file(file_path));
+                //System.out.println("random line: " + random_line);
+                
+                int round_number = (int) Math.round(poisson);
+                System.out.println("round_number: " + round_number);
+                
+                Thread.sleep(round_number * 1000);
+
+                String word_generated = Files.readAllLines(Paths.get(file_path)).get(round_number);
 
                 if (!Server.dictionary.contains(word_generated)) {
                     Server.dictionary.add(word_generated);
                     System.out.println("Word Generated: " + word_generated);
                     Server.gossip(word_generated);
-                } else {
-                    int keep_gossiping = rand_int_generator(1, 5);
-                    if (keep_gossiping == 5) {
+                }
+                else {
+                    float keep_gossiping = random.nextFloat(); 
+                    if (keep_gossiping > 1/5) {
                         Server.gossip(word_generated);
                     }
+                    else{
+                        System.out.println("Stop propagating: " + word_generated);
+                    }
                 }
-                Thread.sleep(30 * 1000);
+                
             } catch (InterruptedException | IOException e) {
                 e.printStackTrace();
             }
@@ -220,24 +246,7 @@ class Word_generator implements Runnable {
         return lines;
     }
 
-
-    // From:
-    // https://en.wikipedia.org/wiki/Poisson_distribution#Random_variate_generation
-    private static int get_poisson_random() {
-        double lambda = 2;
-        Random r = new Random();
-        double L = Math.exp(-lambda);
-        int k = 0;
-        double p = 1.0;
-        do {
-            p = p * r.nextDouble();
-            k++;
-        } while (p > L);
-        return k - 1;
-    }
-
     public static int rand_int_generator(int min, int max) {
         return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
-
 }
