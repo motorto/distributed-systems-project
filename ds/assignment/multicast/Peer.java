@@ -19,6 +19,7 @@ public class Peer {
     static final AtomicLong timestamp = new AtomicLong();
     static HashSet<String> network = new HashSet<>();
     static PriorityBlockingQueue<Message> queue = new PriorityBlockingQueue<>();
+    static boolean i_offer_service = false;
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
         if (args.length < 3) {
@@ -33,7 +34,7 @@ public class Peer {
                 if (line.substring(0, 2).equals("s:")) {
                     String line_tmp = line.replace("s:", "");
                     if (line_tmp.equals(my_ip)) {
-                        // Peer.i_offer_service = true; TODO: CHANGE THIS BACK, JUST DEBUGGING
+                        Peer.i_offer_service = true;
                         continue;
                     }
                     Peer.network.add(line_tmp);
@@ -47,7 +48,8 @@ public class Peer {
         }
 
         new Thread(new Server(args[0], args[1])).start();
-        new Thread(new Shell()).start();
+        if (!Peer.i_offer_service)
+            new Thread(new Shell()).start();
     }
 }
 
@@ -126,7 +128,8 @@ class Connection implements Runnable {
 
             switch (message_received.getType_of_message()) {
                 case "message":
-                    Message to_ack = new Message(Peer.timestamp.getAndIncrement(), message_received.getMessage(),"ack");
+                    Message to_ack = new Message(Peer.timestamp.getAndIncrement(), message_received.getMessage(),
+                            "ack");
                     Server.send_message(to_ack);
                     break;
                 case "ack":
