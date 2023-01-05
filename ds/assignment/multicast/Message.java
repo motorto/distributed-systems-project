@@ -46,7 +46,8 @@ public class Message implements Comparable<Message> {
         this.type_of_message = tmp.replace(":", "");
 
         this.timestamp = Long.parseLong(sc.next());
-        this.message = sc.nextLine();
+        String tmp_msg = sc.nextLine();
+        this.message = tmp_msg.replace(" ", "");
         sc.close();
         return this;
     }
