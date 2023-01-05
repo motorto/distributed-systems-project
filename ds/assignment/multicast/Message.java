@@ -24,10 +24,10 @@ public class Message implements Comparable<Message> {
         this.ip_addr_origin = ip_addr_origin;
     }
 
-    public Message(Long timestamp, String message) {
+    public Message(Long timestamp, String message, String type_of_message) {
         this.timestamp = timestamp;
         this.message = message;
-        this.type_of_message = "message";
+        this.type_of_message = type_of_message;
         this.ip_addr_origin = Server.ip;
         this.ip_port_origin = Server.port;
     }
