@@ -4,7 +4,6 @@
 
 package ds.assignment.gossiping;
 
-import java.util.*;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -20,7 +19,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.Timer;
 import java.util.concurrent.ThreadLocalRandom;
 import java.lang.Math;
 import ds.assignment.gossiping.poisson.PoissonProcess;
@@ -207,7 +205,7 @@ class Word_generator implements Runnable {
                 t += poisson;
                 //System.out.println("time for threads: " + poisson);
                 System.out.println("time: " + t);
-                int random_line = random.nextInt(count_lines_of_file(file_path));
+                // int random_line = random.nextInt(count_lines_of_file(file_path));
                 //System.out.println("number of lines: " + count_lines_of_file(file_path));
                 //System.out.println("random line: " + random_line);
                 
