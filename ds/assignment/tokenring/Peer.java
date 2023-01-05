@@ -15,21 +15,23 @@ public class Peer {
             System.exit(1);
         }
 
-        new Thread(new Server(args[0], Integer.parseInt(args[1]), args[2], Integer.parseInt(args[3]))).start();
+        new Thread(new Server(args[0], args[1], args[2], Integer.parseInt(args[3]))).start();
         new Thread(new Client()).start();
     }
 }
 
 class Server implements Runnable {
     ServerSocket server;
-    static String next_node_ip;
+    static String next_node_ip, node_ip, node_port;
     static int next_node_port, token = 0;
     static boolean lock = false;
 
-    public Server(String node, int node_port, String next_node_ip, int next_node_port) throws Exception {
+    public Server(String node, String node_port, String next_node_ip, int next_node_port) throws Exception {
         Server.next_node_ip = next_node_ip;
         Server.next_node_port = next_node_port;
-        this.server = new ServerSocket(node_port, 1, InetAddress.getByName(node));
+        Server.node_ip = node;
+        Server.node_port = node_port;
+        this.server = new ServerSocket(Integer.parseInt(node_port), 1, InetAddress.getByName(node));
     }
 
     @Override
@@ -50,12 +52,11 @@ class Server implements Runnable {
 
     public static void unlock() {
         try {
-            System.out.println("Token " + Server.token);
 
             Socket socket = new Socket(InetAddress.getByName(next_node_ip), next_node_port);
 
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println(String.valueOf(Server.token + 1));
+            out.println(String.valueOf(Server.token));
             out.flush();
 
             socket.close();
@@ -81,7 +82,8 @@ class Connection implements Runnable {
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
             Scanner parser = new Scanner(in.readLine());
-            Server.token = Integer.parseInt(parser.next());
+            Server.token = Integer.parseInt(parser.next()) + 1;
+            System.out.println(Server.node_ip + ":" + Server.node_port + " " + Server.token);
             parser.close();
             socket.close();
 
