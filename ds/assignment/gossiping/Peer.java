@@ -201,18 +201,13 @@ class Word_generator implements Runnable {
             try {
                 double poisson = pp.timeForNextEvent() * 60;
                 t += poisson;
-                //System.out.println("time for threads: " + poisson);
-                System.out.println("time: " + t);
-                // int random_line = random.nextInt(count_lines_of_file(file_path));
-                //System.out.println("number of lines: " + count_lines_of_file(file_path));
-                //System.out.println("random line: " + random_line);
+                int random_line = random.nextInt(count_lines_of_file(file_path));
                 
                 int round_number = (int) Math.round(poisson);
-                System.out.println("round_number: " + round_number);
                 
                 Thread.sleep(round_number * 1000);
 
-                String word_generated = Files.readAllLines(Paths.get(file_path)).get(round_number);
+                String word_generated = Files.readAllLines(Paths.get(file_path)).get(random_line);
 
                 if (!Server.dictionary.contains(word_generated)) {
                     Server.dictionary.add(word_generated);
