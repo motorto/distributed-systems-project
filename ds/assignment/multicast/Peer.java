@@ -58,11 +58,6 @@ public class Peer {
         if (Peer.i_offer_service)
             new Thread(new Mock_Server(Peer.network.size() + 1)).start();
 
-        try (Scanner scanner = new Scanner(System.in)) {
-            System.out.println("Press the Enter key when network is properly created");
-            scanner.nextLine();
-        }
-
         if (!Peer.i_offer_service) {
             try (Scanner scanner = new Scanner(System.in)) {
                 System.out.println("Press the Enter key when network is properly created");
@@ -187,6 +182,7 @@ class Generate_Messages implements Runnable {
                 String word_to_send = Files.readAllLines(Paths.get(file_path)).get(random_line);
 
                 Message to_send = new Message(Peer.timestamp.getAndIncrement(), word_to_send, "message");
+                System.out.println("Generated: " + word_to_send);
                 Server.send_message(to_send);
             } catch (NumberFormatException | IOException | InterruptedException e) {
                 e.printStackTrace();
