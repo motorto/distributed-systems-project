@@ -25,8 +25,9 @@ across the network.
 ## Totally Ordered Multicast
 
 ```
+$ wget https://github.com/dwyl/english-words/blob/master/words_alpha.txt?raw=true -O words.txt
 $ javac ds/assignment/multicast/Peer.java 
-$ java ds.assignment.multicast.Peer ip port file_containing_all_ips_of_network
+$ java ds.assignment.multicast.Peer ip port file_containing_all_ips_of_network words.txt
 ```
 
 The file containing all ips have the following syntax (no whitespaces allowed before/after):
