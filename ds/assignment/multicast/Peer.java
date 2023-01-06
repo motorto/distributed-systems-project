@@ -28,8 +28,8 @@ public class Peer {
     static boolean i_offer_service = false;
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
-        if (args.length < 3) {
-            System.err.println("Missing Arguments: Peer my_ip my_port file_with_ip_of_all_networks");
+        if (args.length != 4) {
+            System.err.println("Missing Arguments: Peer my_ip my_port file_with_ip_of_all_networks file_to_propagate");
             System.exit(1);
         }
 
@@ -63,7 +63,7 @@ public class Peer {
                 System.out.println("Press the Enter key when network is properly created");
                 scanner.nextLine();
             }
-            new Thread(new Generate_Messages()).start();
+            new Thread(new Generate_Messages(args[3])).start();
         }
     }
 }
@@ -159,10 +159,11 @@ class Connection implements Runnable {
 }
 
 class Generate_Messages implements Runnable {
-    String file_path = "ds/assignment/multicast/dictionary.txt";
+    String file_path;
     Random random = new Random();
 
-    public Generate_Messages() {
+    public Generate_Messages(String file_path) {
+        this.file_path = file_path;
     }
 
     @Override
