@@ -85,8 +85,7 @@ class Server implements Runnable {
     }
 
     public static void gossip(String word_to_send) throws IOException {
-        for (String string : neighbours.keySet()) { // TODO: shouldn't I be able to use the already stored socket ??? It
-                                                    // seems that out.close on L74 closes the socket as well.
+        for (String string : neighbours.keySet()) {
             String ip_gossip[] = string.split(":");
 
             Socket socket = new Socket(InetAddress.getByName(ip_gossip[0]), Integer.parseInt(ip_gossip[1]));
@@ -200,7 +199,6 @@ class Word_generator implements Runnable {
         while (true) {
             try {
                 double poisson = pp.timeForNextEvent() * 60;
-                t += poisson;
                 int random_line = random.nextInt(count_lines_of_file(file_path));
                 
                 int round_number = (int) Math.round(poisson);
@@ -230,8 +228,6 @@ class Word_generator implements Runnable {
         }
     }
 
-    // From:
-    // https://stackoverflow.com/questions/1277880/how-can-i-get-the-count-of-line-in-a-file-in-an-efficient-way
     private int count_lines_of_file(String file_path) throws IOException {
         BufferedReader reader = new BufferedReader(new FileReader(file_path));
         int lines = 0;
