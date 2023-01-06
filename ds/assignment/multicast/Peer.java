@@ -54,10 +54,21 @@ public class Peer {
         }
 
         new Thread(new Server(args[0], args[1])).start();
-        if (!Peer.i_offer_service)
-            new Thread(new Generate_Messages()).start();
-        else {
+
+        if (Peer.i_offer_service)
             new Thread(new Mock_Server(Peer.network.size() + 1)).start();
+
+        try (Scanner scanner = new Scanner(System.in)) {
+            System.out.println("Press the Enter key when network is properly created");
+            scanner.nextLine();
+        }
+
+        if (!Peer.i_offer_service) {
+            try (Scanner scanner = new Scanner(System.in)) {
+                System.out.println("Press the Enter key when network is properly created");
+                scanner.nextLine();
+            }
+            new Thread(new Generate_Messages()).start();
         }
     }
 }
@@ -80,6 +91,7 @@ class Server implements Runnable {
                 new Thread(new Connection(client)).start();
             } catch (Exception e) {
                 e.printStackTrace();
+                System.exit(-1);
             }
         }
     }
@@ -87,7 +99,7 @@ class Server implements Runnable {
     public static void update_clocks(Message message_received) {
         long old_value = Peer.timestamp.get();
         while (true) {
-            if (Peer.timestamp.compareAndSet(old_value, Math.max(old_value, message_received.getTimestamp() + 1))) {
+            if (Peer.timestamp.compareAndSet(old_value, Math.max(old_value, message_received.getTimestamp()) + 1)) {
                 break;
             }
         }
@@ -145,6 +157,7 @@ class Connection implements Runnable {
 
         } catch (IOException e) {
             e.printStackTrace();
+            System.exit(-1);
         }
     }
 
@@ -165,18 +178,19 @@ class Generate_Messages implements Runnable {
         while (true) {
             try {
                 double poisson = pp.timeForNextEvent() * 60;
-                System.out.println("time of the process: " + poisson);
                 int random_line = random.nextInt(count_lines_of_file(file_path));
 
                 int round_number = (int) Math.round(poisson);
 
                 Thread.sleep(round_number * 1000);
+
                 String word_to_send = Files.readAllLines(Paths.get(file_path)).get(random_line);
 
                 Message to_send = new Message(Peer.timestamp.getAndIncrement(), word_to_send, "message");
                 Server.send_message(to_send);
             } catch (NumberFormatException | IOException | InterruptedException e) {
                 e.printStackTrace();
+                System.exit(-1);
             }
         }
     }
@@ -222,6 +236,7 @@ class Mock_Server implements Runnable {
                     if (messages_to_delete.size() == this.number_of_peers) {
                         clean_queue(messages_to_delete);
                         System.out.println(at_the_top);
+                        break;
                     }
                 }
             }
