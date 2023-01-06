@@ -10,11 +10,16 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
+
+import ds.assignment.multicast.poisson.PoissonProcess;
 
 public class Peer {
     static final AtomicLong timestamp = new AtomicLong();
@@ -50,7 +55,7 @@ public class Peer {
 
         new Thread(new Server(args[0], args[1])).start();
         if (!Peer.i_offer_service)
-            new Thread(new Shell()).start();
+            new Thread(new Generate_Messages()).start();
         else {
             new Thread(new Mock_Server(Peer.network.size() + 1)).start();
         }
@@ -145,27 +150,45 @@ class Connection implements Runnable {
 
 }
 
-class Shell implements Runnable {
+class Generate_Messages implements Runnable {
+    String file_path = "ds/assignment/multicast/dictionary.txt";
+    Random random = new Random();
 
-    private Scanner scanner;
-
-    public Shell() {
-        this.scanner = new Scanner(System.in);
+    public Generate_Messages() {
     }
 
     @Override
     public void run() {
+        Random rng = new Random(0); // base RNG to use
+        double lambda = 60; // rate parameter
+        PoissonProcess pp = new PoissonProcess(lambda, rng);
         while (true) {
             try {
-                String input = scanner.nextLine();
-                Message to_send = new Message(Peer.timestamp.getAndIncrement(), input, "message");
+                double poisson = pp.timeForNextEvent() * 60;
+                System.out.println("time of the process: " + poisson);
+                int random_line = random.nextInt(count_lines_of_file(file_path));
+
+                int round_number = (int) Math.round(poisson);
+
+                Thread.sleep(round_number * 1000);
+                String word_to_send = Files.readAllLines(Paths.get(file_path)).get(random_line);
+
+                Message to_send = new Message(Peer.timestamp.getAndIncrement(), word_to_send, "message");
                 Server.send_message(to_send);
-            } catch (NumberFormatException | IOException e) {
+            } catch (NumberFormatException | IOException | InterruptedException e) {
                 e.printStackTrace();
             }
         }
     }
 
+    private int count_lines_of_file(String file_path) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(file_path));
+        int lines = 0;
+        while (reader.readLine() != null)
+            lines++;
+        reader.close();
+        return lines;
+    }
 }
 
 class Mock_Server implements Runnable {
@@ -202,7 +225,6 @@ class Mock_Server implements Runnable {
                     }
                 }
             }
-
         }
     }
 
