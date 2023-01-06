@@ -25,17 +25,14 @@ import ds.assignment.gossiping.poisson.PoissonProcess;
 public class Peer {
 
     public static void main(String[] args) throws Exception {
-        final String file_path = "ds/assignment/gossiping/dictionary.txt";
-
-
-        if (args.length != 2) {
-            System.err.println("Missing Arguments: Peer my_ip my_port");
+        if (args.length != 3) {
+            System.err.println("Missing Arguments: Peer my_ip my_port file_to_propagate");
             System.exit(1);
         }
 
         new Thread(new Server(args[0], args[1])).start();
         new Thread(new Client()).start();
-        new Thread(new Word_generator(file_path)).start();
+        new Thread(new Word_generator(args[2])).start();
     }
 }
 
@@ -182,7 +179,6 @@ class Client implements Runnable {
 class Word_generator implements Runnable {
     int file_number_lines;
     String file_path;
-    double t = 0d;
 
     public Word_generator(String file_path) throws IOException {
         this.file_path = file_path;
